@@ -2,13 +2,13 @@ const { gameState, handleStarClick, calculateSPS, buyCollector, upgradeClick, le
 
 function assert(condition, message) {
     if (!condition) {
-        console.error('FAILED:', message);
+        console.error('測試失敗:', message);
         process.exit(1);
     }
-    console.log('PASSED:', message);
+    console.log('測試通過:', message);
 }
 
-// Reset state for clean tests
+// 重置狀態
 function resetState() {
     gameState.stardust = 0;
     gameState.starLevel = 1;
@@ -21,25 +21,25 @@ function resetState() {
 
 resetState();
 
-// Test 1: Clicking
+// 測試 1: 點擊
 handleStarClick();
-assert(gameState.stardust === 1, 'Clicking should increase stardust by 1');
+assert(gameState.stardust === 1, '點擊應增加 1 星塵');
 
-// Test 2: Level up
+// 測試 2: 升級
 const levelCost = calculateLevelUpCost();
-assert(levelCost === 100, 'Initial level up cost should be 100');
+assert(levelCost === 100, '初始升級成本應為 100');
 gameState.stardust = 100;
 const leveled = levelUp();
-assert(leveled === true, 'Should be able to level up with 100 stardust');
-assert(gameState.starLevel === 2, 'Star level should be 2');
-assert(gameState.stardust === 0, 'Stardust should be 0 after level up');
+assert(leveled === true, '擁有 100 星塵時應可升級');
+assert(gameState.starLevel === 2, '星核等級應為 2');
+assert(gameState.stardust === 0, '升級後星塵應為 0');
 
-// Test 3: Other collectors
+// 測試 3: 其他收集器
 gameState.stardust = 100;
 const boughtComet = buyCollector('comets');
-assert(boughtComet === true, 'Should be able to buy comet with 100 stardust');
-assert(gameState.collectors.comets.count === 1, 'Comet count should be 1');
+assert(boughtComet === true, '擁有 100 星塵時應可購買彗星');
+assert(gameState.collectors.comets.count === 1, '彗星數量應為 1');
 calculateSPS();
-assert(gameState.sps === 5, 'SPS should be 5 after buying one comet');
+assert(gameState.sps === 5, '購買一個彗星後 SPS 應為 5');
 
-console.log('All logic tests passed!');
+console.log('所有邏輯測試皆已通過！');

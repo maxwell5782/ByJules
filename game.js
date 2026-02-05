@@ -1,4 +1,4 @@
-// Star Guardian - Core Game Logic
+// 星際守護者 - 核心遊戲邏輯
 
 const gameState = {
     stardust: 0,
@@ -33,7 +33,7 @@ const gameState = {
     }
 };
 
-// DOM Elements
+// DOM 元素獲取
 const getEl = (id) => typeof document !== 'undefined' ? document.getElementById(id) : null;
 
 const stardustDisplay = getEl('stardust-count');
@@ -42,7 +42,7 @@ const starHeart = getEl('star-heart');
 const starLevelDisplay = getEl('star-level-display');
 const levelUpBtn = getEl('level-up-btn');
 
-// Functions
+// 更新介面
 function updateUI() {
     if (stardustDisplay) stardustDisplay.innerText = Math.floor(gameState.stardust);
     if (spsDisplay) spsDisplay.innerText = gameState.sps.toFixed(1);
@@ -61,7 +61,7 @@ function updateUI() {
         levelUpBtn.disabled = gameState.stardust < levelCost;
     }
 
-    // Update collectors
+    // 更新收集器資訊
     for (const key in gameState.collectors) {
         const countEl = getEl(`${key}-count`);
         const costEl = getEl(`${key}-cost`);
@@ -76,24 +76,26 @@ function updateUI() {
     if (clickCostEl) clickCostEl.innerText = Math.ceil(gameState.upgrades.click.cost);
     if (clickBtn) clickBtn.disabled = gameState.stardust < gameState.upgrades.click.cost;
 
-    // Visual evolution
+    // 視覺演化
     if (starHeart) {
         let stage = 1;
         if (gameState.starLevel > 50) stage = 4;
         else if (gameState.starLevel > 20) stage = 3;
         else if (gameState.starLevel > 5) stage = 2;
         starHeart.className = `star-stage-${stage}`;
-        // Scale star slightly with level
+        // 隨等級增加稍微放大星核
         const scale = 1 + (gameState.starLevel % 20) * 0.02;
         starHeart.style.transform = `scale(${scale})`;
     }
 }
 
+// 處理星核點擊
 function handleStarClick() {
     gameState.stardust += gameState.clickPower;
     updateUI();
 }
 
+// 計算每秒產量 (SPS)
 function calculateSPS() {
     let totalSPS = 0;
     for (const key in gameState.collectors) {
@@ -103,11 +105,13 @@ function calculateSPS() {
     gameState.sps = totalSPS;
 }
 
+// 購買收集器
 function buyCollector(type) {
     const collector = gameState.collectors[type];
     if (gameState.stardust >= collector.cost) {
         gameState.stardust -= collector.cost;
         collector.count++;
+        // 價格增加：每單位 1.15 倍
         collector.cost = collector.baseCost * Math.pow(1.15, collector.count);
         calculateSPS();
         updateUI();
@@ -116,6 +120,7 @@ function buyCollector(type) {
     return false;
 }
 
+// 強化點擊
 function upgradeClick() {
     const upgrade = gameState.upgrades.click;
     if (gameState.stardust >= upgrade.cost) {
@@ -129,10 +134,12 @@ function upgradeClick() {
     return false;
 }
 
+// 計算升級成本
 function calculateLevelUpCost() {
     return 100 * Math.pow(1.5, gameState.starLevel - 1);
 }
 
+// 星核升級
 function levelUp() {
     const cost = calculateLevelUpCost();
     if (gameState.stardust >= cost) {
@@ -144,7 +151,7 @@ function levelUp() {
     return false;
 }
 
-// Game Loop
+// 遊戲主迴圈
 let lastTick = Date.now();
 function gameLoop() {
     const now = Date.now();
@@ -161,7 +168,7 @@ function gameLoop() {
     }
 }
 
-// Initialize
+// 初始化
 if (typeof window !== 'undefined') {
     window.onload = () => {
         if (starHeart) starHeart.onclick = handleStarClick;
@@ -178,7 +185,7 @@ if (typeof window !== 'undefined') {
     };
 }
 
-// Export for testing
+// 匯出以供測試
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { gameState, handleStarClick, calculateSPS, buyCollector, upgradeClick, levelUp, calculateLevelUpCost, updateUI };
 }
