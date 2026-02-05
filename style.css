@@ -1,0 +1,110 @@
+body {
+    background-color: #0b0e14;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 20px;
+}
+
+#game-container {
+    text-align: center;
+    border: 2px solid #3a3f4b;
+    padding: 2rem;
+    border-radius: 15px;
+    background: #161b22;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    max-width: 500px;
+    width: 100%;
+}
+
+#star-container {
+    margin: 3rem 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#star-heart {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    margin-bottom: 20px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.5s, background 0.5s;
+}
+
+/* Star Stages */
+.star-stage-1 {
+    background: radial-gradient(circle, #fff 0%, #ffeb3b 50%, #f44336 100%);
+    box-shadow: 0 0 20px #ffeb3b;
+}
+
+.star-stage-2 {
+    background: radial-gradient(circle, #fff 0%, #03a9f4 50%, #3f51b5 100%);
+    box-shadow: 0 0 40px #03a9f4;
+}
+
+.star-stage-3 {
+    background: radial-gradient(circle, #fff 0%, #e91e63 50%, #9c27b0 100%);
+    box-shadow: 0 0 60px #e91e63;
+}
+
+.star-stage-4 {
+    background: radial-gradient(circle, #fff 0%, #00bcd4 30%, #009688 60%, #000 100%);
+    box-shadow: 0 0 80px #00bcd4, 0 0 120px rgba(0, 188, 212, 0.5);
+}
+
+#star-heart:active {
+    transform: scale(0.9) !important;
+}
+
+button {
+    background-color: #238636;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin: 5px;
+    font-weight: bold;
+}
+
+button:hover:not(:disabled) {
+    background-color: #2ea043;
+}
+
+button:disabled {
+    background-color: #30363d;
+    color: #8b949e;
+    cursor: not-allowed;
+}
+
+.upgrade-section {
+    margin-top: 20px;
+    padding-top: 10px;
+    border-top: 1px solid #30363d;
+}
+
+.upgrade-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 10px 0;
+}
+
+#resource-display p {
+    font-size: 1.2rem;
+    margin: 5px 0;
+}
+
+#level-up-btn {
+    background-color: #8957e5;
+}
+
+#level-up-btn:hover:not(:disabled) {
+    background-color: #a371f7;
+}
