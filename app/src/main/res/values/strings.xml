@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Mock Location App</string>
+    <string name="set_location">Set Location</string>
+</resources>
