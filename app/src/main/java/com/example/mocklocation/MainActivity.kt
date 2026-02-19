@@ -1,40 +1,80 @@
 package com.example.mocklocation
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
+import android.preference.PreferenceManager
 import android.widget.Button
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.OnMapReadyCallback
-import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.MarkerOptions
-import com.google.android.gms.maps.model.Marker
+import org.osmdroid.config.Configuration
+import org.osmdroid.events.MapEventsReceiver
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.MapEventsOverlay
+import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
-class MainActivity : AppCompatActivity(), OnMapReadyCallback {
+class MainActivity : AppCompatActivity() {
 
-    private lateinit var mMap: GoogleMap
-    private var selectedLocation: LatLng? = null
+    private lateinit var mMap: MapView
+    private var selectedLocation: GeoPoint? = null
     private var currentMarker: Marker? = null
+    private var myLocationOverlay: MyLocationNewOverlay? = null
 
     private val LOCATION_PERMISSION_REQUEST_CODE = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize osmdroid configuration
+        Configuration.getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this))
+
         setContentView(R.layout.activity_main)
 
-        val mapFragment = supportFragmentManager
-            .findFragmentById(R.id.map) as SupportMapFragment
-        mapFragment.getMapAsync(this)
+        mMap = findViewById(R.id.map)
+        mMap.setTileSource(TileSourceFactory.MAPNIK)
+        mMap.setMultiTouchControls(true)
+
+        val mapController = mMap.controller
+        mapController.setZoom(10.0)
+        val startPoint = GeoPoint(25.0330, 121.5654)
+        mapController.setCenter(startPoint)
+
+        // Set up click listener
+        val receiveEvents = object : MapEventsReceiver {
+            override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
+                selectedLocation = p
+                currentMarker?.let { mMap.overlays.remove(it) }
+                currentMarker = Marker(mMap).apply {
+                    position = p
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    title = "Selected Location"
+                }
+                mMap.overlays.add(currentMarker)
+                mMap.invalidate()
+                return true
+            }
+
+            override fun longPressHelper(p: GeoPoint): Boolean {
+                return false
+            }
+        }
+        mMap.overlays.add(MapEventsOverlay(receiveEvents))
+
+        // Try to show current location if permission is already granted
+        if (checkLocationPermission()) {
+            enableMyLocation()
+        }
 
         val btnSetLocation: Button = findViewById(R.id.btnSetLocation)
         btnSetLocation.setOnClickListener {
@@ -50,6 +90,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    private fun enableMyLocation() {
+        myLocationOverlay = MyLocationNewOverlay(GpsMyLocationProvider(this), mMap)
+        myLocationOverlay?.enableMyLocation()
+        mMap.overlays.add(myLocationOverlay)
+    }
+
     private fun checkLocationPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
             this,
@@ -60,7 +106,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun requestLocationPermission() {
         ActivityCompat.requestPermissions(
             this,
-            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.WRITE_EXTERNAL_STORAGE),
             LOCATION_PERMISSION_REQUEST_CODE
         )
     }
@@ -74,49 +120,25 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "Permission granted. You can now set the location.", Toast.LENGTH_SHORT).show()
-                if (::mMap.isInitialized) {
-                    try {
-                        mMap.isMyLocationEnabled = true
-                    } catch (e: SecurityException) {
-                        // Permission was just granted, but catch just in case
-                    }
-                }
+                enableMyLocation()
             } else {
                 Toast.makeText(this, "Permission denied. Cannot set mock location.", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    override fun onMapReady(googleMap: GoogleMap) {
-        mMap = googleMap
-
-        // Check if API Key is set
-        if (getString(R.string.google_maps_key) == "YOUR_API_KEY_HERE") {
-            Toast.makeText(this, "Please set your Google Maps API key in google_maps_api.xml", Toast.LENGTH_LONG).show()
-        }
-
-        // Try to show current location if permission is already granted
-        if (checkLocationPermission()) {
-            try {
-                mMap.isMyLocationEnabled = true
-            } catch (e: SecurityException) {
-                // Should not happen if check passed
-            }
-        }
-
-        // Move camera to a default location (Taipei) to avoid starting at (0,0)
-        val defaultLocation = LatLng(25.0330, 121.5654)
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(defaultLocation, 10f))
-
-        mMap.setOnMapClickListener { latLng ->
-            selectedLocation = latLng
-            currentMarker?.remove()
-            currentMarker = mMap.addMarker(MarkerOptions().position(latLng).title("Selected Location"))
-        }
+    override fun onResume() {
+        super.onResume()
+        mMap.onResume()
     }
 
-    private fun setMockLocation(latLng: LatLng) {
-        val locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
+    override fun onPause() {
+        super.onPause()
+        mMap.onPause()
+    }
+
+    private fun setMockLocation(geoPoint: GeoPoint) {
+        val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         val providerName = LocationManager.GPS_PROVIDER
 
         try {
@@ -134,8 +156,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             locationManager.setTestProviderEnabled(providerName, true)
 
             val mockLocation = Location(providerName).apply {
-                latitude = latLng.latitude
-                longitude = latLng.longitude
+                latitude = geoPoint.latitude
+                longitude = geoPoint.longitude
                 altitude = 0.0
                 time = System.currentTimeMillis()
                 accuracy = 1.0f
@@ -145,7 +167,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
 
             locationManager.setTestProviderLocation(providerName, mockLocation)
-            Toast.makeText(this, "Location set to ${latLng.latitude}, ${latLng.longitude}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Location set to ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show()
         } catch (e: SecurityException) {
             Toast.makeText(this, "Security Exception: Make sure this app is set as the Mock Location App in Developer Options", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
