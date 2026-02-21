@@ -2,8 +2,8 @@
     <string name="app_name">Mock Location App</string>
     <string name="set_location">Set Location</string>
     <string name="speed_hint">Speed (km/h)</string>
-    <string name="set_start">Set Start</string>
-    <string name="set_end">Set End</string>
+    <string name="add_point">Add Point</string>
+    <string name="clear_path">Clear Path</string>
     <string name="start_path">Start Path Movement</string>
     <string name="stop_path">Stop Path Movement</string>
 </resources>
