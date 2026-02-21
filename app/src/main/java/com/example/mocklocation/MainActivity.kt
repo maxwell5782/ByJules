@@ -7,9 +7,12 @@ import android.location.Location
 import android.location.LocationManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.preference.PreferenceManager
 import android.widget.Button
+import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -31,6 +34,14 @@ class MainActivity : AppCompatActivity() {
     private var currentMarker: Marker? = null
     private var myLocationOverlay: MyLocationNewOverlay? = null
 
+    private var startPoint: GeoPoint? = null
+    private var endPoint: GeoPoint? = null
+    private var startMarker: Marker? = null
+    private var endMarker: Marker? = null
+    private var isMoving = false
+    private val handler = Handler(Looper.getMainLooper())
+    private var movementRunnable: Runnable? = null
+
     private val LOCATION_PERMISSION_REQUEST_CODE = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,8 +58,8 @@ class MainActivity : AppCompatActivity() {
 
         val mapController = mMap.controller
         mapController.setZoom(10.0)
-        val startPoint = GeoPoint(25.0330, 121.5654)
-        mapController.setCenter(startPoint)
+        val startPointInit = GeoPoint(25.0330, 121.5654)
+        mapController.setCenter(startPointInit)
 
         // Set up click listener
         val receiveEvents = object : MapEventsReceiver {
@@ -80,7 +91,7 @@ class MainActivity : AppCompatActivity() {
         btnSetLocation.setOnClickListener {
             if (checkLocationPermission()) {
                 selectedLocation?.let {
-                    setMockLocation(it)
+                    setMockLocation(it, true)
                 } ?: run {
                     Toast.makeText(this, "Please select a location on the map first", Toast.LENGTH_SHORT).show()
                 }
@@ -88,6 +99,111 @@ class MainActivity : AppCompatActivity() {
                 requestLocationPermission()
             }
         }
+
+        findViewById<Button>(R.id.btnSetStart).setOnClickListener {
+            selectedLocation?.let {
+                startPoint = it
+                updateStartMarker(it)
+            } ?: Toast.makeText(this, "Select a point on map first", Toast.LENGTH_SHORT).show()
+        }
+
+        findViewById<Button>(R.id.btnSetEnd).setOnClickListener {
+            selectedLocation?.let {
+                endPoint = it
+                updateEndMarker(it)
+            } ?: Toast.makeText(this, "Select a point on map first", Toast.LENGTH_SHORT).show()
+        }
+
+        findViewById<Button>(R.id.btnStartPath).setOnClickListener {
+            if (isMoving) {
+                stopPathMovement()
+            } else {
+                startPathMovement()
+            }
+        }
+    }
+
+    private fun updateStartMarker(point: GeoPoint) {
+        startMarker?.let { mMap.overlays.remove(it) }
+        startMarker = Marker(mMap).apply {
+            position = point
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            title = "Start Point"
+        }
+        mMap.overlays.add(startMarker)
+        mMap.invalidate()
+    }
+
+    private fun updateEndMarker(point: GeoPoint) {
+        endMarker?.let { mMap.overlays.remove(it) }
+        endMarker = Marker(mMap).apply {
+            position = point
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            title = "End Point"
+        }
+        mMap.overlays.add(endMarker)
+        mMap.invalidate()
+    }
+
+    private fun startPathMovement() {
+        val start = startPoint
+        val end = endPoint
+        if (start == null || end == null) {
+            Toast.makeText(this, "Set both start and end points", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val speedKmH = findViewById<EditText>(R.id.etSpeed).text.toString().toDoubleOrNull() ?: 60.0
+        if (speedKmH <= 0) {
+            Toast.makeText(this, "Invalid speed", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val totalDistance = start.distanceToAsDouble(end)
+        val speedMS = speedKmH / 3.6
+        val totalDurationMS = (totalDistance / speedMS * 1000).toLong()
+
+        if (totalDurationMS <= 0) {
+            setMockLocation(end, true)
+            return
+        }
+
+        isMoving = true
+        findViewById<Button>(R.id.btnStartPath).text = getString(R.string.stop_path)
+
+        val startTime = SystemClock.elapsedRealtime()
+
+        movementRunnable = object : Runnable {
+            override fun run() {
+                if (!isMoving) return
+
+                val elapsed = SystemClock.elapsedRealtime() - startTime
+                if (elapsed >= totalDurationMS) {
+                    setMockLocation(end, false)
+                    stopPathMovement()
+                    Toast.makeText(this@MainActivity, "Path completed", Toast.LENGTH_SHORT).show()
+                } else {
+                    val fraction = elapsed.toDouble() / totalDurationMS
+                    val currentPoint = interpolate(start, end, fraction)
+                    setMockLocation(currentPoint, false)
+                    handler.postDelayed(this, 1000)
+                }
+            }
+        }
+        handler.post(movementRunnable!!)
+    }
+
+    private fun stopPathMovement() {
+        isMoving = false
+        movementRunnable?.let { handler.removeCallbacks(it) }
+        movementRunnable = null
+        findViewById<Button>(R.id.btnStartPath).text = getString(R.string.start_path)
+    }
+
+    private fun interpolate(start: GeoPoint, end: GeoPoint, fraction: Double): GeoPoint {
+        val lat = start.latitude + (end.latitude - start.latitude) * fraction
+        val lon = start.longitude + (end.longitude - start.longitude) * fraction
+        return GeoPoint(lat, lon)
     }
 
     private fun enableMyLocation() {
@@ -137,7 +253,12 @@ class MainActivity : AppCompatActivity() {
         mMap.onPause()
     }
 
-    private fun setMockLocation(geoPoint: GeoPoint) {
+    override fun onDestroy() {
+        super.onDestroy()
+        stopPathMovement()
+    }
+
+    private fun setMockLocation(geoPoint: GeoPoint, showToast: Boolean) {
         val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         val providerName = LocationManager.GPS_PROVIDER
 
@@ -167,11 +288,15 @@ class MainActivity : AppCompatActivity() {
             }
 
             locationManager.setTestProviderLocation(providerName, mockLocation)
-            Toast.makeText(this, "Location set to ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show()
+            if (showToast) {
+                Toast.makeText(this, "Location set to ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show()
+            }
         } catch (e: SecurityException) {
             Toast.makeText(this, "Security Exception: Make sure this app is set as the Mock Location App in Developer Options", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
-            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+            if (showToast) {
+                Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+            }
         }
     }
 }

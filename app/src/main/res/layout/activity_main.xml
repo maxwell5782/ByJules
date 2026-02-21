@@ -10,18 +10,70 @@
         android:id="@+id/map"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintBottom_toTopOf="@+id/btnSetLocation"
+        app:layout_constraintBottom_toTopOf="@+id/controlPanel"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <Button
-        android:id="@+id/btnSetLocation"
-        android:layout_width="0dp"
+    <LinearLayout
+        android:id="@+id/controlPanel"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/set_location"
+        android:orientation="vertical"
+        android:padding="8dp"
+        android:background="#AAFFFFFF"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/speed_hint"
+                android:paddingEnd="8dp" />
+            <EditText
+                android:id="@+id/etSpeed"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="numberDecimal"
+                android:text="60" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <Button
+                android:id="@+id/btnSetStart"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/set_start" />
+            <Button
+                android:id="@+id/btnSetEnd"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/set_end" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnStartPath"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/start_path" />
+
+        <Button
+            android:id="@+id/btnSetLocation"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/set_location" />
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
