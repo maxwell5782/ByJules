@@ -9,8 +9,7 @@
     <org.osmdroid.views.MapView
         android:id="@+id/map"
         android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:layout_constraintBottom_toTopOf="@+id/controlPanel"
+        android:layout_height="match_parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
@@ -49,17 +48,17 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal">
             <Button
-                android:id="@+id/btnSetStart"
+                android:id="@+id/btnAddPoint"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/set_start" />
+                android:text="@string/add_point" />
             <Button
-                android:id="@+id/btnSetEnd"
+                android:id="@+id/btnClearPath"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/set_end" />
+                android:text="@string/clear_path" />
         </LinearLayout>
 
         <Button

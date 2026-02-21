@@ -34,10 +34,8 @@ class MainActivity : AppCompatActivity() {
     private var currentMarker: Marker? = null
     private var myLocationOverlay: MyLocationNewOverlay? = null
 
-    private var startPoint: GeoPoint? = null
-    private var endPoint: GeoPoint? = null
-    private var startMarker: Marker? = null
-    private var endMarker: Marker? = null
+    private val pathPoints = mutableListOf<GeoPoint>()
+    private val pathMarkers = mutableListOf<Marker>()
     private var isMoving = false
     private val handler = Handler(Looper.getMainLooper())
     private var movementRunnable: Runnable? = null
@@ -100,18 +98,27 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        findViewById<Button>(R.id.btnSetStart).setOnClickListener {
+        findViewById<Button>(R.id.btnAddPoint).setOnClickListener {
             selectedLocation?.let {
-                startPoint = it
-                updateStartMarker(it)
+                pathPoints.add(it)
+                val marker = Marker(mMap).apply {
+                    position = it
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    title = "Point ${pathPoints.size}"
+                }
+                mMap.overlays.add(marker)
+                pathMarkers.add(marker)
+                mMap.invalidate()
             } ?: Toast.makeText(this, "Select a point on map first", Toast.LENGTH_SHORT).show()
         }
 
-        findViewById<Button>(R.id.btnSetEnd).setOnClickListener {
-            selectedLocation?.let {
-                endPoint = it
-                updateEndMarker(it)
-            } ?: Toast.makeText(this, "Select a point on map first", Toast.LENGTH_SHORT).show()
+        findViewById<Button>(R.id.btnClearPath).setOnClickListener {
+            stopPathMovement()
+            pathPoints.clear()
+            pathMarkers.forEach { mMap.overlays.remove(it) }
+            pathMarkers.clear()
+            mMap.invalidate()
+            Toast.makeText(this, "Path cleared", Toast.LENGTH_SHORT).show()
         }
 
         findViewById<Button>(R.id.btnStartPath).setOnClickListener {
@@ -123,33 +130,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateStartMarker(point: GeoPoint) {
-        startMarker?.let { mMap.overlays.remove(it) }
-        startMarker = Marker(mMap).apply {
-            position = point
-            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-            title = "Start Point"
-        }
-        mMap.overlays.add(startMarker)
-        mMap.invalidate()
-    }
-
-    private fun updateEndMarker(point: GeoPoint) {
-        endMarker?.let { mMap.overlays.remove(it) }
-        endMarker = Marker(mMap).apply {
-            position = point
-            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-            title = "End Point"
-        }
-        mMap.overlays.add(endMarker)
-        mMap.invalidate()
-    }
 
     private fun startPathMovement() {
-        val start = startPoint
-        val end = endPoint
-        if (start == null || end == null) {
-            Toast.makeText(this, "Set both start and end points", Toast.LENGTH_SHORT).show()
+        if (pathPoints.size < 2) {
+            Toast.makeText(this, "Set at least 2 points", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -158,33 +142,47 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Invalid speed", Toast.LENGTH_SHORT).show()
             return
         }
-
-        val totalDistance = start.distanceToAsDouble(end)
         val speedMS = speedKmH / 3.6
-        val totalDurationMS = (totalDistance / speedMS * 1000).toLong()
-
-        if (totalDurationMS <= 0) {
-            setMockLocation(end, true)
-            return
-        }
 
         isMoving = true
         findViewById<Button>(R.id.btnStartPath).text = getString(R.string.stop_path)
 
-        val startTime = SystemClock.elapsedRealtime()
+        var currentIdx = 0
+        var segmentStartPoint = pathPoints[0]
+        var segmentEndPoint = pathPoints[1]
+        var segmentDistance = segmentStartPoint.distanceToAsDouble(segmentEndPoint)
+        var segmentDuration = (segmentDistance / speedMS * 1000).toLong()
+        var segmentStartTime = SystemClock.elapsedRealtime()
 
         movementRunnable = object : Runnable {
             override fun run() {
-                if (!isMoving) return
+                if (!isMoving || pathPoints.size < 2) return
 
-                val elapsed = SystemClock.elapsedRealtime() - startTime
-                if (elapsed >= totalDurationMS) {
-                    setMockLocation(end, false)
-                    stopPathMovement()
-                    Toast.makeText(this@MainActivity, "Path completed", Toast.LENGTH_SHORT).show()
-                } else {
-                    val fraction = elapsed.toDouble() / totalDurationMS
-                    val currentPoint = interpolate(start, end, fraction)
+                val now = SystemClock.elapsedRealtime()
+                var elapsedInSegment = now - segmentStartTime
+
+                while (elapsedInSegment >= segmentDuration && isMoving) {
+                    currentIdx++
+                    if (currentIdx >= pathPoints.size - 1) {
+                        if (pathPoints.isNotEmpty()) {
+                            setMockLocation(pathPoints.last(), false)
+                        }
+                        stopPathMovement()
+                        Toast.makeText(this@MainActivity, "Path completed", Toast.LENGTH_SHORT).show()
+                        return
+                    }
+                    // Start next segment
+                    segmentStartTime += segmentDuration
+                    segmentStartPoint = pathPoints[currentIdx]
+                    segmentEndPoint = pathPoints[currentIdx + 1]
+                    segmentDistance = segmentStartPoint.distanceToAsDouble(segmentEndPoint)
+                    segmentDuration = (segmentDistance / speedMS * 1000).toLong()
+                    elapsedInSegment = now - segmentStartTime
+                }
+
+                if (isMoving) {
+                    val fraction = if (segmentDuration > 0) elapsedInSegment.toDouble() / segmentDuration else 1.0
+                    val currentPoint = LocationUtils.interpolate(segmentStartPoint, segmentEndPoint, fraction)
                     setMockLocation(currentPoint, false)
                     handler.postDelayed(this, 1000)
                 }
@@ -200,11 +198,6 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnStartPath).text = getString(R.string.start_path)
     }
 
-    private fun interpolate(start: GeoPoint, end: GeoPoint, fraction: Double): GeoPoint {
-        val lat = start.latitude + (end.latitude - start.latitude) * fraction
-        val lon = start.longitude + (end.longitude - start.longitude) * fraction
-        return GeoPoint(lat, lon)
-    }
 
     private fun enableMyLocation() {
         myLocationOverlay = MyLocationNewOverlay(GpsMyLocationProvider(this), mMap)
