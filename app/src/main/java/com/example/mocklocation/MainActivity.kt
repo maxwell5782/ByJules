@@ -3,6 +3,13 @@ package com.example.mocklocation
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.location.Location
 import android.location.LocationManager
 import android.os.Build
@@ -11,12 +18,17 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.preference.PreferenceManager
+import android.view.View
+import android.widget.AdapterView
 import android.widget.Button
 import android.widget.EditText
+import android.widget.Spinner
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -56,8 +68,23 @@ class MainActivity : AppCompatActivity() {
 
         val mapController = mMap.controller
         mapController.setZoom(10.0)
-        val startPointInit = GeoPoint(25.0330, 121.5654)
+
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val lastLat = prefs.getFloat("last_lat", 25.0330f).toDouble()
+        val lastLon = prefs.getFloat("last_lon", 121.5654f).toDouble()
+        val startPointInit = GeoPoint(lastLat, lastLon)
         mapController.setCenter(startPointInit)
+
+        // Add a marker at the last location if it was saved
+        if (prefs.contains("last_lat")) {
+            selectedLocation = startPointInit
+            currentMarker = Marker(mMap).apply {
+                position = startPointInit
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                title = "Last Location"
+            }
+            mMap.overlays.add(currentMarker)
+        }
 
         // Set up click listener
         val receiveEvents = object : MapEventsReceiver {
@@ -104,6 +131,7 @@ class MainActivity : AppCompatActivity() {
                 val marker = Marker(mMap).apply {
                     position = it
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    icon = createMarkerIcon(pathPoints.size - 1)
                     title = "Point ${pathPoints.size}"
                 }
                 mMap.overlays.add(marker)
@@ -127,6 +155,14 @@ class MainActivity : AppCompatActivity() {
             } else {
                 startPathMovement()
             }
+        }
+
+        val spinnerSlots: Spinner = findViewById(R.id.spinnerSlots)
+        findViewById<Button>(R.id.btnSavePath).setOnClickListener {
+            savePath(spinnerSlots.selectedItemPosition)
+        }
+        findViewById<Button>(R.id.btnLoadPath).setOnClickListener {
+            loadPath(spinnerSlots.selectedItemPosition)
         }
     }
 
@@ -251,9 +287,80 @@ class MainActivity : AppCompatActivity() {
         stopPathMovement()
     }
 
+    private fun savePath(slot: Int) {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val gson = Gson()
+        val json = gson.toJson(pathPoints)
+        prefs.edit().putString("path_slot_$slot", json).apply()
+        Toast.makeText(this, "Path saved to Slot ${slot + 1}", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun loadPath(slot: Int) {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val json = prefs.getString("path_slot_$slot", null)
+        if (json != null) {
+            val gson = Gson()
+            val type = object : TypeToken<List<GeoPoint>>() {}.type
+            val points: List<GeoPoint> = gson.fromJson(json, type)
+
+            // Clear current path
+            stopPathMovement()
+            pathPoints.clear()
+            pathMarkers.forEach { mMap.overlays.remove(it) }
+            pathMarkers.clear()
+
+            // Load points
+            points.forEach {
+                pathPoints.add(it)
+                val marker = Marker(mMap).apply {
+                    position = it
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    icon = createMarkerIcon(pathPoints.size - 1)
+                    title = "Point ${pathPoints.size}"
+                }
+                mMap.overlays.add(marker)
+                pathMarkers.add(marker)
+            }
+            mMap.invalidate()
+            Toast.makeText(this, "Path loaded from Slot ${slot + 1}", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "No path saved in Slot ${slot + 1}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun createMarkerIcon(index: Int): Drawable {
+        val size = 60
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+        // Draw red circle
+        paint.color = Color.RED
+        paint.style = Paint.Style.FILL
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
+
+        // Draw white text
+        paint.color = Color.WHITE
+        paint.textSize = 36f
+        paint.textAlign = Paint.Align.CENTER
+        val text = (index + 1).toString()
+        val bounds = Rect()
+        paint.getTextBounds(text, 0, text.length, bounds)
+        canvas.drawText(text, size / 2f, size / 2f + bounds.height() / 2f, paint)
+
+        return BitmapDrawable(resources, bitmap)
+    }
+
     private fun setMockLocation(geoPoint: GeoPoint, showToast: Boolean) {
         val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         val providerName = LocationManager.GPS_PROVIDER
+
+        // Save last location
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        prefs.edit()
+            .putFloat("last_lat", geoPoint.latitude.toFloat())
+            .putFloat("last_lon", geoPoint.longitude.toFloat())
+            .apply()
 
         try {
             // Check if provider exists, if not add it

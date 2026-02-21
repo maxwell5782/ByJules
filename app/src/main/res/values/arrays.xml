@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="path_slots">
+        <item>Slot 1</item>
+        <item>Slot 2</item>
+        <item>Slot 3</item>
+    </string-array>
+</resources>

@@ -61,6 +61,34 @@
                 android:text="@string/clear_path" />
         </LinearLayout>
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/path_slot_hint"
+                android:paddingEnd="8dp" />
+            <Spinner
+                android:id="@+id/spinnerSlots"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:entries="@array/path_slots" />
+            <Button
+                android:id="@+id/btnSavePath"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/save_path" />
+            <Button
+                android:id="@+id/btnLoadPath"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/load_path" />
+        </LinearLayout>
+
         <Button
             android:id="@+id/btnStartPath"
             android:layout_width="match_parent"
