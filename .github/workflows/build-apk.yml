@@ -25,18 +25,18 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
 
       - name: Build with Gradle
-        run: gradle assembleDebug
+        run: gradle assembleRelease
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: "**/build/outputs/apk/debug/*.apk"
+          name: app-release
+          path: "**/build/outputs/apk/release/*.apk"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}
           name: Release v${{ github.run_number }}
-          files: "**/build/outputs/apk/debug/*.apk"
+          files: "**/build/outputs/apk/release/*.apk"
           generate_release_notes: true
