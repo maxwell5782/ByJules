@@ -37,6 +37,7 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
 class MainActivity : AppCompatActivity() {
@@ -164,6 +165,11 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnLoadPath).setOnClickListener {
             loadPath(spinnerSlots.selectedItemPosition)
         }
+
+        // Set up BottomSheet
+        val controlPanel: View = findViewById(R.id.controlPanel)
+        val bottomSheetBehavior = BottomSheetBehavior.from(controlPanel)
+        bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
     }
 
 
